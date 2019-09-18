@@ -1,0 +1,27 @@
+# H.264 编码
+
+[H.264](https://blog.csdn.net/qq_29350001/article/details/78226286)
+
+## NALU 语法结构
+
+`NALU`是H264编码数据存储或传输的**基本单元**，一般H264码流最开始的两个NALU是**SPS**和**PPS**，第三个NALU是**IDR**。`SPS、PPS、SEI`这三种NALU**不属于**`帧(frame)`的范畴
+
+- SPS(Sequence Parameter Sets)：序列参数集，作用于一系列连续的编码图像, **包含了码流的属性等信息**
+- PPS(Picture Parameter Set)：图像参数集，作用于编码视频序列中一个或多个独立的图像
+- SEI(Supplemental enhancement information)：附加增强信息，包含了视频画面定时等信息，一般放在主编码图像数据之前，在某些应用中，它可以被省略掉
+- IDR(Instantaneous Decoding Refresh)：即时解码刷新
+- HRD(Hypothetical Reference Decoder)：假想码流调度器
+
+整个系统框架被分为了两个层面：**视频编码层面（VCL）**和**网络抽象层面(NAL)**,前者负责*有效表示视频数据的内容*，而后者则负责**格式化数据并提供头信息，以保证数据适合各种信道和存储介质上的传输**。因此我们平时的每帧数据就是一个NAL单元（SPS与PPS除外）。在实际的H264数据帧中，往往帧前面带有00 00 00 01 或 00 00 01分隔符，一般来说编码器编出的首帧数据为PPS与SPS，接着为I帧
+
+![NALUnits单元](./img/NALUnits.png)
+
+在H264码流中，都是以"0x00 0x00 0x01"或者"0x00 0x00 0x00 0x01"为开始码的，找到开始码之后，使用开始码之后的第一个字节的低 5 位判断是否为 7(sps)或者 8(pps), 及 data[4] & 0x1f == 7 || data[4] & 0x1f == 8。然后对获取的 **nal 去掉开始码之后进行 base64 编码**，得到的信息就可以用于 `sdp`
+
+每个**NALU**由一个字节的**Header**和**RBSP**组成.
+
+- **Header** = forbidden_zero_bit(1bit) + nal_ref_idc(2bit) + nal_unit_type(5bit)
+- **SODB**(String Of Data Bits)：**最原始的编码数据**RBSP, 长度不一定是8的倍数，此时需要对齐
+- **RBSP**： 在SODB的后面**添加**了**结尾比特**（RBSP trailing bits 一个bit“1”）若干比特“0”,以便字节对齐
+
+码流是由一个个的NAL Unit组成的，NALU是由NALU头和RBSP数据组成，而RBSP可能是SPS，PPS，Slice或SEI，目前我们这里SEI不会出现，而且SPS位于第一个NALU，PPS位于第二个NALU，其他就是**Slice**(严谨点区分的话可以把IDR等等再分出来)了
