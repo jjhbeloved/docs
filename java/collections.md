@@ -80,9 +80,16 @@ grow(); // 按照旧的数组大小扩容1.5倍, 如果不足, 扩容至需要�
 
 与 ArrayList 类似
 
-### 3.4 CopyOnWriteArrayList(线程安全)
+### 3.4 CopyOnWriteArrayList(线程安全 - 写时复制)
 
-使用 `动态数组` 来存储,
+使用 `动态数组` 来存储, 使用 `ReentrantLock` 加锁.
+
+**写操作**在一个复制的数组上进行，**读操作**还是在原始数组中进行，读写分离，互不影响. 最终一致性, 读到的数据存在延时.
+
+``` java
+set(); // 使用 Arrays.copy 将原有数据拷贝一份 进行修改
+add(); // 使用 Arrays.copy 将原有数据拷贝一份 进行新增
+```
 
 ## 4. Queue
 
