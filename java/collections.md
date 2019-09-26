@@ -6,7 +6,7 @@
 
 初学者可以简单理解，hashCode方法实际上**返回的就是对象存储的物理地址**（实际可能并不是）。  
 
-`hashCode()` 返回散列值
+`hashCode()` 返回散列值, 作用于 map 加快搜索效率
 
 `equals()` 是用来判断两个对象**是否等价**
 
@@ -58,12 +58,14 @@ contains时间复杂度 O(n)
 
 `modCount`变量 作用是保证不会在修改过程中, 有数据变更(存在则抛出异常). 解决for循环做了 add/remove 等动作
 
+ArrayList 实现了 `writeObject()` 和 `readObject()` 来控制只序列化数组中有元素填充那部分内容. 存储数据的 elementData 数组使用 `transient` 声明无需序列化.
+
 ``` java
 int DEFAULT_CAPACITY = 10;
 add(v); // 直接赋值到对应size, 无需数组内存拷贝
 add(index, v); // 性能不好, 要对数组内存做 copy 移位
 removeIf(); // 使用了 bitset 来标识删除对象, 减少存储
-grow(); // 按照旧的数组大小扩容一倍, 如果不足, 扩容至需要的大小
+grow(); // 按照旧的数组大小扩容1.5倍, 如果不足, 扩容至需要的大小
 ```
 
 ### 3.2 LinkedList(非线程安全)
@@ -77,6 +79,10 @@ grow(); // 按照旧的数组大小扩容一倍, 如果不足, 扩容至需要�
 ### 3.3 Vector(线程安全)
 
 与 ArrayList 类似
+
+### 3.4 CopyOnWriteArrayList(线程安全)
+
+使用 `动态数组` 来存储,
 
 ## 4. Queue
 
@@ -104,16 +110,79 @@ remove(); // todo
 poll(); // todo
 ```
 
-### 4.2 ArrayBlockingQueue
+### 4.2 ArrayBlockingQueue(线程安全)
 
-使用 `动态数组` 来存储, 基于 `heap小根堆`结构来保证有序.
+使用 `动态数组` 来存储, 使用 `lock` 和 `notEmpty/notFull` 来实现线程安全. 使用 `putIndex` 和 `takeIndex` 表示 offer 和 take 的位置.
 
-使用 `ReentranLock` 和 `notEmpty/notFull` 来实现线程安全.
+由于读写都使用一个 lock, 因此实际上不是读写分离的.
 
 ``` java
 enqueue(); // 每次成功入队列后, 发送一个 notEmpty.signal() 信号唤醒 await() thread.
 offer(); // 如果存储满了使用 notFull.await() 等待唤醒
+Itr(); // todo
+size(); // lock/unlock
 ```
+
+### 4.3 LinkedBlockingQueue(线程安全)
+
+使用 `单向链表` 来存储, 使用 `takeLock/putLock` 和 `notEmpty/notFull` 来实现线程安全. 使用 `putIndex` 和 `takeIndex` 表示 offer 和 take 的位置.
+
+由于读写各使用一个锁, 读写单独操作head 和 last Node, 因此可以实现读写分离, 性能更好.
+
+``` java
+size(); // AtomicInteger.get()
+put(); // 接受响应中断, 入队后 notFull 主动 signal
+// 遍历链表时, 需要将 头尾锁 lock
+remove(); // take/put lock 都会被锁住
+contains(); // take/put lock 都会被锁住
+drainTo(); // 将n个数据导出(原数据删除), 不会导致分段锁, 性能较好
+```
+
+### 4.4 LinkedBlockingDeque(线程安全)
+
+使用 `双向链表` 来存储, 使用 `lock` 和 `notEmpty/notFull` 来实现线程安全.
+
+### 4.5 PriorityBlockingQueue(线程安全)
+
+使用 `动态数组` 来存储, 基于 `heap小根堆`结构来保证**有序**. 使用 `lock` 和 `notEmpty` 来实现线程安全.
+
+``` java
+tryGrow(); // 扩容本身要耗费时间, 就不应该占用 lock, 所有一进入要释放, 但是又可能存在并发问题, 所以使用 CAS 来控制, 而并发进入的线程如果没有执行扩容操作, 需要主动 Thread.yield() 放弃 cpu
+```
+
+### 4.6 SynchronousQueue(线程安全)
+
+[同步阻塞队列的几种方案](https://www.cnblogs.com/duanxz/p/3252267.html)
+
+无buffer模式, fair 使用 Queue, no fair 使用 Stack.(默认非公平).
+
+Fifo通常可以支持更大的吞吐量，但Lifo可以更大程度的保持线程的本地化
+
+接使用 `CAS` 实现线程的安全访问
+
+生产的数据, 没有被消费前是不允许再次生产. 如果没有消费者, 生产的数据会立即被丢弃.
+
+spin 个数默认 500
+
+#### 4.6.1 公平模式 TransferQueue
+
+head + tail Node, 线程安全使用 `UNSAFE.compareAndSwapObject` 来保证, 非常**细粒度**的 CAS object
+
+通过输入的值是否是 null 来判断是 take 还是 offer, 使用一个 LockSupport 来实现同步状态切换.
+
+put 的 node 与 tail node 做比较是否是 take/offer 对, 是的话, 从 head node 出队列.
+
+``` java
+transfer(); // 先 spin, 然后 LockSupport.park
+```
+
+#### 4.6.2 非公平模式 TransferStack
+
+通过输入的值是否是 null 来判断是 take 还是 offer
+
+每次操作都会先入栈, 找到与之匹配的 take/offer 对, 连续2个出栈.
+
+### 4.6 LinkedTransferQueue()
 
 ## 5. BitSet
 
@@ -138,7 +207,7 @@ private final static int BIT_INDEX_MASK = BITS_PER_WORD - 1;
 /* 用于向左或向右移动部分word的掩码 */
 private static final long WORD_MASK = 0xffffffffffffffffL;
 
-// 这里使用了 long bit 左移后 超过 64 bit 会从第 0 bit 开始实现循环
+// 实际位移 会先根据 类型的占位 做 MASK, 确定范围
 words[wordIndex] |= (1L << bitIndex); // Restores invariants
 ```
 
