@@ -130,3 +130,20 @@ inode 是索引节点, 文件**元信息**的区域.
 
 1. 所包含的文件名
 2. 文件名对应的 inode 编码
+
+## 8. IO
+
+[IO - 同步，异步，阻塞，非阻塞 （亡羊补牢篇）](https://blog.csdn.net/historyasamirror/article/details/5778378)
+
+1. BIO
+2. IO Multiplexing
+3. NIO => Reactor => 只负责通知IO就绪，具体的IO操作（例如读写）仍然是要在业务进程里阻塞的去做的
+   1. 用select的优势在于它可以同时处理多个connection
+4. AIO => Proactor => 由操作系统将IO操作执行好（例如读取，会将数据直接读到内存buffer中），而handler只负责处理自己的逻辑
+
+以下两准方式, 是以上 4 种 IO Model 的区别:
+
+1. 等待数据准备
+2. 将数据从内核拷贝到进程中
+
+![bio 参考](./imgs/bio.gif)

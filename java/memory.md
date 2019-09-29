@@ -1,27 +1,42 @@
 # Memory
 
-JVM 构成为2大模块:
+## 0. 内存模型
 
-1. 共享内存
-   1. heap(on-heap memory)
-   2. method-area
-2. 独占内存
-   1. thread-stack
-   2. pc register
-   3. native method stack
+![内存模型](./imgs/java_memory_model.png)
 
-## 1. on-heap memory 堆内内存
+1. read：把一个变量的值从主内存传输到工作内存中
+2. load：在 read 之后执行，把 read 得到的值放入工作内存的变量副本中
+3. use：把工作内存中一个变量的值传递给执行引擎
+4. assign：把一个从执行引擎接收到的值赋给工作内存的变量
+5. store：把工作内存的一个变量的值传送到主内存中
+6. write：在 store 之后执行，把 store 得到的值放入主内存的变量中
+7. lock：作用于主内存的变量
+8. unlock
 
-作用是 存放所有**对象的实例**
+### 0.1 原子性/可见性/有序性
 
-### 1.1 GC 垃圾回收
+1. 保证以上 8 个命令都具备原子性
+2. volatile/sync/final 保证可见性
+3. volatile 通过 barrier 禁止指令重拍, sync 通过加锁只允许一个线程执行
 
-分为 新生代(eden, s1, s2 - 8:1:1), 老年代(old), 永生代
+### 0.2 happen-before 原则
 
-- `minor/major gc`
-- `full gc`(当内存或者是连续内存不足时, 会执行 full gc) 对 heap 内所有内存进行扫描, 扫描期间, 绝大多数java thread 会暂停, stw(stop the world).
+1. 单一线程有序
+2. 管程锁定规则, monitor lock rule, unlock 操作先行发生于后一个 lock 之前
+3. 对一个volatile write 现行发生于后一个对这个变量的 read
+4. 线程启动规则, start()方法现行发生于此线程的每一个动作.
+5. thread join rule, join 之前 thread 已经结束.
+6. thread interrupt rule, 可以通过 interrupted 检测到中断
+7. finalizer rule, <init>() 先于 finalize()
+8. transitivity, 传递行
 
-## 2. off-heap memory 堆外内存
+### 0.3 线程安全
+
+1. 不可变, final, String
+2. 互斥同步, cas, sync, reentrantLock
+3. 无阻塞, 栈封闭(无逃逸), ThreadLocal 线程本地存储, 可重入代码
+
+## 1. off-heap memory 堆外内存
 
 当对象很大, 占用了堆内存, 却长期不释放, 会导致频繁的 full gc 且 stw频繁.
 
@@ -53,19 +68,19 @@ JVM 使用一个 ByteBuffer 实例对象**记录**堆外内存的**信息**(内�
 1. 使用 HeapByteBuffer 读写都会经过 DirectByteBuffer，写入数据的流转方式其实是：`HeapByteBuffer -> DirectByteBuffer -> PageCache -> Disk`，读取数据的流转方式正好相反。
 2. 使用 `HeapByteBuffer` 读写会**额外申请一块**跟**线程绑定**的 `DirectByteBuffer`。这意味着，线程越多，临时 DirectByteBuffer 就越会占用越多的空间。
 
-### 2.1 优点
+### 1.1 优点
 
 1. 开辟空间大, 取决于操作系统
 2. 减少 stw
 3. 直接受 os 控制, 其他线程访问**减少**了 `jvm heap -> page cache` 拷贝的时间
 4. 适用**分配次数少, 读写操作频繁**的场景
 
-### 2.2 缺点
+### 1.2 缺点
 
 1. 内存不可控, 容易 oom, 难排查
 2. 数据结构不直观, 序列化/反序列化 很耗时
 
-## 3. in/out heap 最佳实践
+## 2. in/out heap 最佳实践
 
 1. 当需要申请 **大块的内存** 时，堆内内存会受到限制，只能分配**堆外内存**
 2. 堆外内存适用于 **生命周期中等或较长** 的对象。( 如果是生命周期较短的对象，在 YGC 的时候就被回收了，就不存在大内存且生命周期较长的对象在 FGC 对应用造成的性能影响 )
@@ -76,7 +91,7 @@ JVM 使用一个 ByteBuffer 实例对象**记录**堆外内存的**信息**(内�
 - 调用 `malloc()` 时，是在PCB表结构中的堆中申请空间，若申请空间失败，即超过给定的堆最大空间时，将会调用brk()系统调用，将堆空间向未使用的区域扩展，brk()之后新增的堆空间不会自动清除，需使用相应的系统调用来清除； 
 - 调用 `mmap()` 系统调用使得进程之间通过映射同一个普通文件实现共享内存。普通文件被映射到进程地址空间后，进程可以像访问普通内存一样对文件进行访问，不必再调用read()，write（）等操作
 
-## 4. 字节数组拷贝
+## 3. 字节数组拷贝
 
 ``` java
 // 将 src 字节数组从 srcPos 位置开始拷贝 len 个 byte 到 以 dstPos 开始的 dst 字节数组中

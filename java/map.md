@@ -59,7 +59,59 @@ Node 新增 head, after 形成双向链表
 putVal();
 ```
 
+可以基于 LinkedHashMap 来实现 LRU Cache. 开启 accessOrder 特性, 在每次修改值时, 会将修改值放置到链表的 last. 在插入新值时, 根据 `removeEldestEntry` 返回值决定是否删除 first node. 可以重写此方法.
+
 ## 3. ConccurentHashMap
+
+数组(hashcode & capacity - 1)tab[] + 链表(eqauls)Node + 红黑树 存储, 扩容时多使用一个`Node[] nextTable`.
+
+``` java
+// 控制 表初始化和扩容. -1代表初始化, -(1+扩容线程)代表扩容, 正数为表扩容大小
+private transient volatile int sizeCtl;
+// 再次优化的 hash
+spread(); // 即使哈希冲突比较严重，寻址效率也足够高，所以作者并未在哈希值的计算上做过多设计，只是将Key的hashCode值与其高16位作异或并保证最高位为0（从而保证最终结果为正整数）
+// arrayBaseOffset方法是一个本地方法，可以获取数组第一个元素的偏移地址
+// arrayIndexScale方法也是一个本地方法，可以获取数组的转换因子，也就是数组中元素的增量地址
+// 将arrayBaseOffset与arrayIndexScale配合使用，可以定位数组中每个元素在内存中的位置
+Class<?> ak = Node[].class;
+ABASE = U.arrayBaseOffset(ak);
+int scale = U.arrayIndexScale(ak);
+ASHIFT = 31 - Integer.numberOfLeadingZeros(scale);
+static final <K,V> Node<K,V> tabAt(Node<K,V>[] tab, int i) {
+    // 没有加锁, 也没有直接使用 volatile 让CPU内缓存无效, 而是只更新这个 处理器上的工作内存
+    // i<< ASHIFT 是将 i 定位到数组的增量位置上
+   return (Node<K,V>)U.getObjectVolatile(tab, ((long)i << ASHIFT) + ABASE);
+}
+// 使用 CounterCell 记录好没一个 tab 对应链表值个数(volatile count)
+// 将 count 计算提前到 更新操作中通过 cas 完成
+size();
+// 如果 tab 不存在, 从初始化表
+// 如果 sizeCtrl < 0 协助扩容
+// 否则 初始化扩容
+tryPresize();
+// 实际扩容函数, 如果 nextTable 不存在, 按照原 table 大小扩容一倍.
+// 多线程 协助扩容, 每个线程固定步长stride/bound, 从 nextIndex 最大值开始递减分配
+// null 或者 已经处理过的 Node 使用 fwd 占位节点来标识已经被处理过了
+// 使用 len 最高一位 0/1 来实现自动负载
+transfer();
+// 占位节点, 如果县城发现类型为 fwd, 则忽略此节点
+class ForwardingNode;
+// 使用 多线程协助扩容的方案来实现批量 put
+putAll();
+// 如果 tab[hash] = null 则为链表首节点, 使用 casTabAt 插入 tab
+// 如果 tab[] == null 则初始化 tab
+// 如果 tab[hash].hash == MOVED 说明正在扩容, 调用 helperTransfer 协助扩容
+// 否则插入节点, 使用 sychronized(node) 锁住整个链表头
+// 主动给 count + 1
+putVal();
+// 加1, 如果是 putVal, 每次 addCount 都会伴随这 协助扩容
+addCount();
+// 若是 sizeCtl<0 意味着有人在初始化或扩容, 当前县城主动 yield 释放 cpu
+// 否则 使用 cas 设置 sizeCtl = -1 代表正在初始化, 初始化完成 sizeCtl = n >>> 2
+initTable();
+```
+
+[transfer()函数分析](https://juejin.im/post/5b00160151882565bd2582e0)
 
 ## 4. SortedMap
 
