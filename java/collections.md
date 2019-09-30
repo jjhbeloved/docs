@@ -197,7 +197,10 @@ transfer(); // 先 spin, 然后 LockSupport.park
 
 [BitSet运用](https://www.cnblogs.com/liun1994/p/6637198.html)
 
-位图操作使用较少的内存就能处理较大的**数值**. 字符串可以根据 `hashcode` 来做.
+位图操作使用较少的内存就能处理较大的**数值**. 字符串可以根据 `hashcode` 来做. 
+
+> BitSet能够保证 **如果判定结果为false，那么数据一定是不存在；但是如果结果为true，可能数据存在，也可能不存在(冲突覆盖)**
+> BloomFilter 的设计思想和BitSet有较大的相似性，目的也一致，它的核心思想也是使用多个Hash算法在一个“位图”结构上着色，最终提高“存在性”判断的效率
 
 为什么选择long这种数据类型，注释的解析是基于性能的原因，现在64位CPU已经非常普及，可以一次把一个64bit长度的long放进**寄存器(cache line)**作计算
 
@@ -215,10 +218,83 @@ private final static int BIT_INDEX_MASK = BITS_PER_WORD - 1;
 private static final long WORD_MASK = 0xffffffffffffffffL;
 
 // 实际位移 会先根据 类型的占位 做 MASK, 确定范围
+// wordIndex 是先除 64 获得数组下表, 再直接获取在 64 bit 的哪几位
 words[wordIndex] |= (1L << bitIndex); // Restores invariants
 ```
 
 BitSet 支持的最大存储值为 Integer.MAX_VALUE = 2^31-1 约为20亿. Integer 占用 4 byte = 32 bit. `BitSet.set(int v);`
 
 [50亿数据统计和排序](https://www.itread01.com/content/1544706735.html)
+[Java位向量的实现原理与巧妙应用](https://www.cnblogs.com/liun1994/p/6637198.html)
+
 如果要做 50 亿的数据排序和查询, 需要做一个 BitSet[] 数组才能处理.
+
+### 5.1 实战
+
+有个老的手机短信程序，由于当时的手机CPU，内存都很烂。所以这个短信程序只能记住256条短信，多了就删了。每个短信有个唯一的ID，在0到255之间。当然用户可能自己删短信.现在要求设计实现一个功能: 当收到了一个新短信啥，如果手机短信容量还没”用完”（用完即已经存储256条），请分配给它一个可用的ID。由于手机很破，我要求你的程序**尽量快**，并**少用内存**
+
+审题:
+
+通读一遍题目，可以大概知道题目并不需要我们实现手机短信内容的存储，也就是不用管短信内容以什么形式存、存在哪里等问题。需要关心的地方应该是如何快速找到还没被占用的ID（0 ～ 255），整理一下需求，如下：
+
+1. 手机最多存储256条短信，短信ID范围是[0,255]
+2. 用户可以手动删除短信，删除哪些短信是由用户决定的
+3. 当收到一条新短信时，只需要分配一个还没被占用的ID即可，不需要是可用ID中最小的ID
+4. 题目没说明在手机短信容量已满的情况下，也就是无法找到可用ID时需要怎么办，这里约定在这种情况下程序返回一个错误码即可
+
+设计一个数据结构来存储已被占用的或没被占用的短信ID. 实现一个函数，返回一个可用的ID，当无法找到可用ID时，返回-1, 在实现以上两点的前提下，尽量在程序执行速度和内存占用量上做优化
+
+``` java
+public class BitSetDemo {
+
+    private int size;
+    private BitSet bitSet;
+
+    public BitSetDemo(int size) {
+        this.size = size;
+        bitSet = new BitSet(size);
+    }
+
+    private int getId() {
+        if (usedCapacity() > 0) {
+            return bitSet.nextClearBit(0);
+        } else {
+            throw new RuntimeException("not space.");
+        }
+    }
+
+    public int addId() {
+        int id = getId();
+        bitSet.set(id);
+        return id;
+    }
+
+    public void removeId(int id) {
+        bitSet.clear(id);
+    }
+
+    public int usedCapacity() {
+        return size - bitSet.length();
+    }
+
+    public static void main(String[] args) {
+        BitSetDemo bit = new BitSetDemo(256);
+
+        System.out.println(bit.usedCapacity());
+        int id = bit.addId();
+        System.out.println("Id: " + id);
+        System.out.println(bit.usedCapacity());
+        bit.removeId(id);
+        System.out.println(bit.usedCapacity());
+
+        id = bit.addId();
+        System.out.println("Id: " + id);
+        System.out.println(bit.usedCapacity());
+
+        for (int i = 0; i < 255; i++) {
+            bit.addId();
+        }
+        System.out.println(bit.usedCapacity());
+    }
+}
+```

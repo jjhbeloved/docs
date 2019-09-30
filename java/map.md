@@ -4,7 +4,7 @@
 
 1. java, 数组(hashcode & capacity - 1)tab[] + 链表(eqauls)Node + 红黑树 存储
    1. jdk 1.7 使用头插法, 当扩容时, 会出现 a<->b循环依赖.
-   2. jdk 1.8 使用尾插法, 
+   2. jdk 1.8 使用尾插法
 2. redis
 
 ``` java
