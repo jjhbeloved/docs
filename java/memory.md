@@ -1,5 +1,7 @@
 # Memory
 
+java bytes stream 默认是 BigEndian
+
 ## 0. 内存模型
 
 ![内存模型](./imgs/java_memory_model.png)
@@ -27,7 +29,7 @@
 4. 线程启动规则, start()方法现行发生于此线程的每一个动作.
 5. thread join rule, join 之前 thread 已经结束.
 6. thread interrupt rule, 可以通过 interrupted 检测到中断
-7. finalizer rule, <init>() 先于 finalize()
+7. finalizer rule, `<init>()` 先于 finalize()
 8. transitivity, 传递行
 
 ### 0.3 线程安全

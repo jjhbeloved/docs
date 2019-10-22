@@ -17,7 +17,9 @@ static final int MIN_TREEIFY_CAPACITY = 64;
 
 // JDK1.8 -> 2次扰动处理=1次位运算+1次异或
 // key哈希值与key哈希值右移16位，做异或，可以减少冲突量
-return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+int hash(String key) {
+    return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+}
 // 获取容量的 2^n 次最大值, 获取 capacity 的 threshold, 保证是 2 次幂
 // int 32 位, 通过 >> 1, >> 2, >> 4, >> 8, >> 16 取与 可以得到 MASK n 个 1
 // 从此获取到 length
@@ -45,6 +47,8 @@ putVal();
 // 如果 key 值不存 或者 value 为 null 使用fuction来插入值
 // 如果 hashcode 存在相等, key 没有相等的, 往链表 head 插入值
 computeIfAbsent(key, Function);
+// 记录修改次数, 来决定是否 fast-fail
+volatile int modCount;
 ```
 
 红黑树:
@@ -63,13 +67,24 @@ putVal();
 
 ## 3. ConccurentHashMap
 
-数组(hashcode & capacity - 1)tab[] + 链表(eqauls)Node + 红黑树 存储, 扩容时多使用一个`Node[] nextTable`.
+1. 弱一致性, 当修改正在遍历的数据, 已遍历的数据不会反映, 而未遍历的数据会反映
+   1. putAll
+   2. forEach
+2. 迭代安全
+3. 分段技术(每个数组位一个lock)
+
+jdk8 使用 **数组(hashcode & capacity - 1)tab[] + 链表(eqauls)Node + 红黑树** 存储, 扩容时多使用一个`Node[] nextTable`
+
+链表寻址时间: O(n), 红黑树寻址时间: O(log(n))
 
 ``` java
 // 控制 表初始化和扩容. -1代表初始化, -(1+扩容线程)代表扩容, 正数为表扩容大小
 private transient volatile int sizeCtl;
 // 再次优化的 hash
-spread(); // 即使哈希冲突比较严重，寻址效率也足够高，所以作者并未在哈希值的计算上做过多设计，只是将Key的hashCode值与其高16位作异或并保证最高位为0（从而保证最终结果为正整数）
+// 即使哈希冲突比较严重，寻址效率也足够高，所以作者并未在哈希值的计算上做过多设计，只是将Key的hashCode值与其高16位作异或并保证最高位为0（从而保证最终结果为正整数）
+static final int spread(int h) {
+  return (h ^ (h >>> 16)) & HASH_BITS;
+}
 // arrayBaseOffset方法是一个本地方法，可以获取数组第一个元素的偏移地址
 // arrayIndexScale方法也是一个本地方法，可以获取数组的转换因子，也就是数组中元素的增量地址
 // 将arrayBaseOffset与arrayIndexScale配合使用，可以定位数组中每个元素在内存中的位置
@@ -101,7 +116,7 @@ putAll();
 // 如果 tab[hash] = null 则为链表首节点, 使用 casTabAt 插入 tab
 // 如果 tab[] == null 则初始化 tab
 // 如果 tab[hash].hash == MOVED 说明正在扩容, 调用 helperTransfer 协助扩容
-// 否则插入节点, 使用 sychronized(node) 锁住整个链表头
+// 否则插入节点, 使用 sychronized(node) 锁住整个链表头, 当超过阈值会将 链表转换成树
 // 主动给 count + 1
 putVal();
 // 加1, 如果是 putVal, 每次 addCount 都会伴随这 协助扩容
@@ -125,4 +140,26 @@ rehash 是重新计算新的 数组长度, 使用 (e.hash & 0x7FFFFFFF) % newCap
 
 ## 6. TreeMap
 
-红黑树
+红黑树, 支持**排序**
+
+## 7. ConccurentSkipListMap
+
+是 `TreeMap` 的**并发**实现. 之所以不使用树, 而使用**跳表**, 是因为跳表更容易实现**高效算法**.
+
+``` java
+size() // 时间复杂度是 O(n), 需要遍历所有元素, 意义不大, 因为最后结果改变的概率很大
+```
+
+### 7.1 跳表原理
+
+基于**链表**, 在链表上增加了**多层索引**. 每一层索引都有两个指针, 一个指向同层下一个节点, 一个指向下一层同位节点. **高层一般是低层的 1/2**. 基于这种结构, 可以实现**类似二分查找发**
+
+查询/更新时间复杂度是 `O(log(n))` 类似二叉树
+
+每层都记录一个相同的节点, 适合并发
+
+![concurrent skip list](./imgs/skipList.jpg)
+
+节点上有n个层级索引指针, 不支持并发
+
+![skip list](./imgs/skipList.jpg)

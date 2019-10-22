@@ -85,13 +85,13 @@ LockSupport 的 unpark 是一种信号量, 以来 AQS, 先 `unpark` 后 `park` �
 
 使用 lock + condition 实现. 内部计数器 count 记录执行了 await() 的线程次数. 当最后一个线程执行 await 时, 会执行 condition.signAll() 唤醒所有 await() 的线程.
 
-### 2.1 CountDownLatch
+### 1.4 CountDownLatch
 
 不允许重置
 
 内部使用 AQS 来实现同步, 多线程调用 countDown() 后直到 0, await 释放.
 
-### 3.1 ForkJoinPool
+### 1.5 ForkJoinPool
 
 1. 分割任务
 2. 合并结果
@@ -101,3 +101,17 @@ ForkJoinPool 实现了工作窃取算法来提高 CPU 的利用率。**每个线
 1. ForkJoinTask/RecursiveAction/RecursiveTask, 提供 fork() 和 join()
 2. ForkJoinPool 执行 Task, 分配任务到工作线程维护的双端队列
 
+## 2. CompletableFuture
+
+[Java多執行緒的基本知識](https://popcornylu.gitbooks.io/java_multithread/content/async/cfuture.html)
+
+所謂的Completable就是這個future可以被complete。其實這要先討論Future跟Promise這兩個概念
+
+- Future: 是一個未來會完成的一個結果，算是這個結果的容器。Caller透過Future來等非同步執行的結果
+- Promise: 是可以被改變可以被完成的值，通常是非同步執行的結果。Callee透過Promise來告知非同步完成的結果
+
+基本上就是一體兩面啦。對於asynchronous invocation，對於caller看到就是future，對於callee就是看到promise
+
+CompletableFuture就同時扮演了Future跟Promise兩種角色
+
+基于此方功能, 内置一个 id->future 的 map, 可以实现 异步转同步

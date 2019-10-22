@@ -2,6 +2,8 @@
 
 [SDP详细介绍](https://blog.csdn.net/longlong530/article/details/9004707)
 
+SDP 完全是一种**会话描述格式**, 它不属于传输协议, 它只使用不同的适当的传输协议，包括会话通知协议（SAP）、会话初始协议（SIP）、实时流协议（RTSP）、MIME 扩展协议的电子邮件以及超文本传输协议（HTTP）。SDP协议是也是基于文本的协议，这样就能保证协议的可扩展性比较强，这样就使其具有广泛的应用范围。SDP 不支持会话内容或媒体编码的协商，所以在流媒体中只用来描述媒体信息。媒体协商这一块要用RTSP来实现．
+
 ## 语法
 
 1. SDP中的video**必须**携带PS属性
@@ -42,3 +44,30 @@ a=recvonly
 a=sendrecv
 a=sendonly
 ```
+
+1. Session Description
+2. Timing Description
+3. Media Description
+
+### h264
+
+1. "m=" 行中的媒体名必须是 "video"
+2. "a=rtpmap" 行中的编码名称必须是 "H264".
+3. "a=rtpmap" 行中的时钟频率必须是 90000.
+4. 其他参数都包括在 "a=fmtp" 行中.
+
+``` text
+m=video 49170 RTP/AVP 98
+a=rtpmap:98 H264/90000
+a=fmtp:98 profile-level-id=42A01E; packetization-mode=1; sprop-parameter-sets=Z0IACpZTBYmI,aMljiA==
+```
+
+`sprop-parameter-sets`: SPS,PPS
+
+这个参数可以用于传输 H.264 的**序列参数集**和**图像参数** NAL 单元. 这个参数的值采用 Base64 进行编码. 不同的参数集间用","号隔开.
+
+`profile-level-id`
+这个参数用于指示 H.264 流的 profile 类型和级别. 由 Base16(十六进制) 表示的 3 个字节. 第一个字节表示 H.264 的 Profile 类型, 第三个字节表示 H.264 的 Profile 级别:
+
+`max-mbps`
+这个参数的值是一个整型, 指出了每一秒最大的宏块处理速度.
