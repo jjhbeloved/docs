@@ -6,7 +6,7 @@
 
 在RTSP的请求(Request)和响应(Response)中，必须包含请求和响应**序数**。该序数标识一对请求和响应。在完成一对请求和响应后，无论请求是成功还是失败，都必须将该序数**加一**。该序数在RTSP中以`CSeq`字段表示
 
-### 1.1 流传输方式
+### 1.1 流数据传输方式
 
 [RTP/AVP & RTP/AVP/TCP](https://www.jianshu.com/p/7b9793eb2f4e)
 
@@ -15,30 +15,9 @@
 
 采用那种方式传输是由 **客户端决定**的. 在RTSP的`SETUP`命令中需要**确定**是使用`TCP`传输还是建立`UDP`传输
 
-#### 1.1.1 UDP
-
-默认传输方式为: RTP/AVP. 即RTP/AVP/UDP.
-
-RTP/AVP stand for RTP A/V Profile.
-
-UDP 传输协议, RTP, RTCP, RTSP 有独立的端口, 视频和音频**分别执行**SETUP指令
-
-![RTP/AVP/UDP中视频或音频的RTP和RTCP交互示意](./img/rtsp-client-server.jpg)
-
-- 基本流程: `RTP打包->UDP传输->RTP解包`
-- RTCP用于质量控制, 通过QoS反馈到RTP打包和RTP解包.
-
-![RTP/AVP/UDP 视频传输框图示意](./img/rtp-stream-flow.jpg)
-
-#### 1.1.2 TCP
-
-传输方式为: RTP/AVP/TCP
-
-TCP 传输协议, RTP, RTCP, RTSP 共用一个端口, 因此存在交叉流的情况, 需要通过特殊的 packet 表示符进行区分. 副用了端口, 但是可能存在延迟.
-
 ### 2. Request 请求
 
-![protocal](./img/rtsp-request-protocol.jpg)
+![protocal](../img/rtsp-request-protocol.jpg)
 
 > 其中方法包括OPIONS、DESCRIBE、SETUP、PLAY、TEARDOWN等。URL是接接收方的地址，例如:rtsp://192.168.0.1/video.264。RTSP版本一般都是 RTSP/1.0。每行后面的CRLF表示回车换行，需要接收端有相应的解析，**最后一个消息头需要有两个CRLF**。消息体是可选的，有的请求消息并不带消息体
 
@@ -69,7 +48,7 @@ RTSP = RequestLine *([general header] | request header] | [entity header]) + CRL
 
 ### 3. Response 响应
 
-![protocal](./img/rtsp-response-protocol.jpg)
+![protocal](../img/rtsp-response-protocol.jpg)
 
 ``` text
 Response = Status-Line *(general-header response-header entity-header） CRLF [ message-body ]

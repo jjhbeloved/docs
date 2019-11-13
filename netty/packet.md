@@ -2,7 +2,7 @@
 
 ## 拆包/粘包问题
 
-netty 使用 ByteBuf 作为一个缓冲区, 如果报文太大, 会被拆分 n 个packet. 需要自己做判断
+netty 使用 ByteBuf 作为一个缓冲区, 如果报文太大, 会被拆分 n 个 packet 进入多个 ByteBuf 中. 需要自己做判断
 
 1. tcp 如何保证数据 拆包后是有序的
 2. 如何保证 拆包后的接收方收到的数据是连续的
@@ -16,4 +16,3 @@ netty 使用 ByteBuf 作为一个缓冲区, 如果报文太大, 会被拆分 n �
 
 - RCVBUF_ALLOCATOR: 接收 ByteBuf 缓冲大小
 - SO_SNDBUF: 缓冲区大小??
-
