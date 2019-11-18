@@ -2,6 +2,14 @@
 
 [深度分析Java的ClassLoader机制（源码级别）](https://juejin.im/entry/5a73be026fb9a0634c263ec5)
 
+## 类加载的细节
+
+1. 判断两个 instance 是否相等, instanceof 需要同时判断 classloader 和 class 相等.
+2. java class 默认是不加载的, 使用时加载. 如果是系统默认的加载器, 使用 AppClassLoader
+3. 当使用 new 一个对象时, 会校验此类是否已经被加载, 没有, 会使用**当前所在类的加载器**去加载
+4. 如果一个类使用自定义类加载器, 需要在初次加载时使用自定义加载器
+5. 通过类加载器加载的新类, hard code 只能使用反射
+
 ## 双亲委派
 
 1. Bootstrap ClassLoader(`rt.jar` 等基础类型是由此 类加载器加载)
@@ -9,8 +17,7 @@
 3. Application ClassLoader
 
 - 如果要维持双亲委派模式, 重写 findClass 和 resolveClass.
-- 否则重写 loadClass
-- 重写 defineClass
+- 否则重写 loadClass, defineClass
 
 ### 类加载流程
 
